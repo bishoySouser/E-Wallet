@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import org.wallet.ewallet.user.User;
 
 @Entity
-@Table(name = "wallet")
+@Table(name = "wallets")
 public class Wallet {
 
     @Id
