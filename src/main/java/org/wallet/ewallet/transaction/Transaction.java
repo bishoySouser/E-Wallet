@@ -9,7 +9,6 @@ import org.wallet.ewallet.wallet.Wallet;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "transaction")
@@ -28,7 +27,6 @@ public class Transaction {
     private Wallet destinationWallet;
 
     @Column(name = "amount", nullable = false)
-    @Positive(message = "Amount must be greater than zero")
     private BigDecimal amount;
 
     @Column(name="transaction_currency")
@@ -41,18 +39,29 @@ public class Transaction {
     @NotNull(message = "Type cannot be null")
     private TransactionType type;
 
+    @Column(name = "transaction_status")
+    @Enumerated(EnumType.STRING)
+    @NotNull(message = "Status cannot be null")
+    private TransactionStatus status;
+
     @Column(name = "requested_at")
     private Instant requestedAt;
 
     @Column(name = "completed_at")
     private Instant completedAt;
 
+    @Column(name = "failed_at")
+    private Instant failedAt;
+
     public static Transaction deposit(
             @Positive BigDecimal amount,
             Wallet destinationWallet
     ) {
+        validateAmount(amount);
+
         Transaction transaction = new Transaction();
         transaction.type = TransactionType.DEPOSIT;
+        transaction.status = TransactionStatus.PENDING;
         transaction.amount = amount;
         transaction.sourceWallet = null;
         transaction.destinationWallet = destinationWallet;
@@ -65,8 +74,11 @@ public class Transaction {
             @Positive BigDecimal amount,
             Wallet sourceWallet
     ) {
+        validateAmount(amount);
+
         Transaction transaction = new Transaction();
         transaction.type = TransactionType.WITHDRAWAL;
+        transaction.status = TransactionStatus.PENDING;
         transaction.amount = amount;
         transaction.sourceWallet = sourceWallet;
         transaction.currency = sourceWallet.getCurrency();
@@ -80,13 +92,36 @@ public class Transaction {
             Wallet sourceWallet,
             Wallet destinationWallet
     ) {
+        validateAmount(amount);
+
         Transaction transaction = new Transaction();
         transaction.type = TransactionType.TRANSFER;
+        transaction.status = TransactionStatus.PENDING;
         transaction.amount = amount;
         transaction.sourceWallet = sourceWallet;
         transaction.destinationWallet = destinationWallet;
+        transaction.currency = sourceWallet.getCurrency();
         transaction.requestedAt = Instant.now();
         return transaction;
     }
 
+    private static void validateAmount(BigDecimal newAmount) {
+        if (newAmount == null || newAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Amount must be greater than zero");
+        }
+    }
+
+    public void markCompleted() {
+        if (status == TransactionStatus.PENDING) {
+            this.status = TransactionStatus.COMPLETED;
+            this.completedAt = Instant.now();;
+        }
+    }
+
+    public void markFailed() {
+        if (status == TransactionStatus.PENDING) {
+            this.status = TransactionStatus.FAILED;
+            this.failedAt = Instant.now();
+        }
+    }
 }
